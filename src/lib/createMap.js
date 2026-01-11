@@ -308,7 +308,7 @@ function getDefaultStyle() {
         "points-source": {
           type: "vector",
           tiles: [config.vectorTilesTiles],
-          minzoom: 4,
+          minzoom: 0,
           maxzoom: 7,
           center: [-9.843750,4.213679,7],
         },
@@ -394,7 +394,7 @@ function getDefaultStyle() {
           "type": "symbol",
           "source": "points-source",
           "source-layer": "points",
-          "filter": [">=", ["zoom"], 8],
+          "filter": [">=", ["zoom"], 2],
           "layout": {
             "text-font": [ "Roboto Condensed Regular" ],
             "text-field": ["slice", ["get", "label"], ["+", ["index-of", "/", ["get", "label"]], 1]],
