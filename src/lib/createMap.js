@@ -131,7 +131,12 @@ export default function createMap() {
     if (!repo) return;
     const [lat, lon] = nearestCity.geometry.coordinates
     bus.fire("show-tooltip");
-    bus.fire("repo-selected", { text: repo, lat, lon });
+    bus.fire("repo-selected", {
+      text: repo,
+      lat,
+      lon,
+      groupId: nearestCity.properties?.parent
+    });
   }
 
   function showLargestProjectsContextMenuItem(bg) {

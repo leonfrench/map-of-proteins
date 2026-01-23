@@ -14,5 +14,6 @@ export default {
 
   namesEndpoint: `${server}${version}/names`,
   graphsEndpoint: `${server}${version}/graphs`,
+  geneMetadataEndpoint: `${server}${version}/gene-metadata.json`,
   showRepoInfo: false,
 };

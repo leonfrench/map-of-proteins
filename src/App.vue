@@ -2,6 +2,7 @@
 import {ref, onBeforeUnmount, onBeforeMount, computed} from 'vue';
 import TypeAhead from './components/TypeAhead.vue';
 import GithubRepository from './components/GithubRepository.vue';
+import GeneRepository from './components/GeneRepository.vue';
 import SmallPreview from './components/SmallPreview.vue';
 import About from './components/About.vue';
 import UnsavedChanges from './components/UnsavedChanges.vue';
@@ -30,6 +31,12 @@ const isSmallScreen = ref(window.innerWidth < SM_SCREEN_BREAKPOINT);
 const supportMessageVisible = ref(false);
 let lastSelected;
 let supportMessageTimer;
+const geneMetadata = ref(null);
+const geneMetadataError = ref('');
+const geneMetadataLoading = ref(false);
+const currentClusterId = ref(null);
+const currentClusterName = ref('');
+let clusterInfoRequestId = 0;
 
 function onTypeAheadInput() {
 }
@@ -40,6 +47,8 @@ function closeSideBarViewer() {
   sidebarVisible.value = false;
   currentProject.value = '';
   smallPreviewName.value = '';
+  currentClusterId.value = null;
+  currentClusterName.value = '';
   window.mapOwner?.clearHighlights();
 }
 
@@ -60,6 +69,7 @@ function findProject(x) {
   window.mapOwner?.makeVisible(x.text, location, x.skipAnimation);
   currentProject.value = x.text;
   bus.fire('current-project', x.text);
+  updateClusterInfo(x);
 }
 
 function onRepoSelected(repo) {
@@ -67,6 +77,7 @@ function onRepoSelected(repo) {
   if (!showRepoInfo) {
     smallPreviewName.value = '';
     currentProject.value = repo.text;
+    updateClusterInfo(repo);
     return;
   }
   if (isSmallScreen.value) {
@@ -112,6 +123,9 @@ onBeforeMount(() => {
   bus.on('focus-on-repo', onFocusOnRepo);
   bus.on('unsaved-changes-detected', onUnsavedChangesDetected);
   window.addEventListener('resize', onResize);
+  if (!showRepoInfo) {
+    loadGeneMetadata();
+  }
   
   // Show support message after a delay
   supportMessageTimer = setTimeout(() => {
@@ -169,6 +183,47 @@ function showUnsavedChanges() {
   unsavedChangesVisible.value = true;
 }
 
+async function loadGeneMetadata() {
+  if (!config.geneMetadataEndpoint) return;
+  geneMetadataLoading.value = true;
+  geneMetadataError.value = '';
+  try {
+    const response = await fetch(config.geneMetadataEndpoint);
+    if (!response.ok) {
+      throw new Error(`Failed to load gene metadata: ${response.status} ${response.statusText}`);
+    }
+    geneMetadata.value = await response.json();
+  } catch (error) {
+    console.error(error);
+    geneMetadataError.value = error.message || 'Failed to load gene metadata.';
+  } finally {
+    geneMetadataLoading.value = false;
+  }
+}
+
+async function updateClusterInfo(repo) {
+  if (showRepoInfo || !repo) return;
+  const requestId = ++clusterInfoRequestId;
+  currentClusterId.value = null;
+  currentClusterName.value = '';
+
+  let groupId = repo.groupId;
+  if (groupId === undefined && repo.lat !== undefined && repo.lon !== undefined) {
+    groupId = await window.mapOwner?.getGroupIdAt(repo.lat, repo.lon);
+  }
+  if (requestId !== clusterInfoRequestId) return;
+  if (groupId === undefined) return;
+
+  currentClusterId.value = groupId;
+  const places = window.mapOwner?.getPlacesGeoJSON?.();
+  if (!places?.features?.length) return;
+  const groupIdKey = String(groupId);
+  const match = places.features.find((feature) => String(feature?.properties?.ownerId) === groupIdKey);
+  if (match?.properties?.name) {
+    currentClusterName.value = match.properties.name;
+  }
+}
+
 async function listCurrentConnections() {
   if (currentFocus.value) {
     currentFocus.value.disposeSubgraphViewer();
@@ -214,6 +269,16 @@ async function listCurrentConnections() {
       @close="closeFocusView()"
     ></focus-repository>
     <github-repository :name="currentProject" v-if="currentProject && showRepoInfo" @listConnections="listCurrentConnections()"></github-repository>
+    <gene-repository
+      :name="currentProject"
+      v-if="currentProject && !showRepoInfo"
+      :metadata="geneMetadata"
+      :loading="geneMetadataLoading"
+      :error="geneMetadataError"
+      :cluster-id="currentClusterId"
+      :cluster-name="currentClusterName"
+      @listConnections="listCurrentConnections()"
+    ></gene-repository>
     <form @submit.prevent="onSubmit" class="search-box" v-if="typeAheadVisible">
       <type-ahead
         placeholder="Find Project"

@@ -1,0 +1,161 @@
+<script setup>
+import { computed } from 'vue';
+
+const props = defineProps({
+  name: {
+    type: String,
+    required: true
+  },
+  clusterId: {
+    type: [String, Number],
+    default: null
+  },
+  clusterName: {
+    type: String,
+    default: ''
+  },
+  metadata: {
+    type: Object,
+    default: null
+  },
+  loading: {
+    type: Boolean,
+    default: false
+  },
+  error: {
+    type: String,
+    default: ''
+  }
+});
+
+const emit = defineEmits(['listConnections']);
+
+const geneEntry = computed(() => {
+  if (!props.metadata) return null;
+  return props.metadata[props.name];
+});
+
+const summaryTitle = computed(() => {
+  return `UniProtKB/Swiss-Prot Summary`;
+});
+
+const summaryText = computed(() => {
+  if (!geneEntry.value) return '';
+  const description = geneEntry.value.description;
+  if (!description) return 'No summary available.';
+  return description;
+});
+
+const uniprotLink = computed(() => {
+  const entry = geneEntry.value?.uniprot || geneEntry.value?.uniprot_entry;
+  if (!entry) return '';
+  return `https://www.uniprot.org/uniprotkb/${entry}/entry`;
+});
+
+const displayClusterName = computed(() => {
+  return props.clusterName || 'Unknown cluster';
+});
+
+const displayClusterId = computed(() => {
+  if (props.clusterId === null || props.clusterId === undefined) return 'Unknown';
+  return props.clusterId;
+});
+
+function listConnections() {
+  emit('listConnections');
+}
+</script>
+
+<template>
+  <div class="repo-viewer">
+    <div>
+      <h2>{{ name }}</h2>
+      <div class="gene-full-name" v-if="geneEntry?.name">
+        {{ geneEntry.name }}
+      </div>
+      <div class="cluster-info">
+        <div class="cluster-label">Cluster</div>
+        <div class="cluster-name">{{ displayClusterName }}</div>
+        <div class="cluster-id">ID: {{ displayClusterId }}</div>
+      </div>
+      <div v-if="loading" class="loading">
+        Loading gene metadata...
+      </div>
+      <div v-else-if="error" class="not-found">
+        {{ error }}
+      </div>
+      <div v-else-if="!geneEntry" class="not-found">
+        No metadata found for this gene.
+      </div>
+      <div v-else class="summary">
+        <div class="summary-title">{{ summaryTitle }}</div>
+        <div class="summary-text">{{ summaryText }}</div>
+        <a v-if="uniprotLink" class="summary-link" :href="uniprotLink" target="_blank" rel="noopener">
+          View on UniProt
+        </a>
+      </div>
+      <div class="actions row">
+        <a href="#" @click.prevent="listConnections()">List connections</a>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+h2 {
+  font-size: 24px;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.repo-viewer {
+  padding-top: 70px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.gene-full-name {
+  line-height: 1.2em;
+  margin-bottom: 12px;
+}
+
+.cluster-info {
+  margin-bottom: 16px;
+}
+
+.cluster-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.cluster-name {
+  line-height: 1.2em;
+}
+
+.cluster-id {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.summary-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+  margin-bottom: 6px;
+}
+
+.summary-text {
+  line-height: 1.3em;
+}
+
+.summary-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--color-link-hover);
+}
+</style>
